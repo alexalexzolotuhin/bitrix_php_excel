@@ -40,6 +40,9 @@ $sheet->getStyle('A1')->getFill()->getStartColor()->setRGB('EEEEEE');
 // Объединяем ячейки
 $sheet->mergeCells('A1:H1');
 
+
+//$xls->getActiveSheet()->setAutoFilter('A1:J1');
+
 // Выравнивание текста
 $sheet->getStyle('A1')->getAlignment()->setHorizontal(
     PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
@@ -56,6 +59,8 @@ for ($i = 2; $i < 10; $i++) {
         setHorizontal(PHPExcel_Style_Alignment::HORIZONTAL_CENTER);
     }
 }
+
+
 // Выводим HTTP-заголовки
 header ( "Expires: Mon, 1 Apr 1974 05:00:00 GMT" );
 header ( "Last-Modified: " . gmdate("D,d M YH:i:s") . " GMT" );
