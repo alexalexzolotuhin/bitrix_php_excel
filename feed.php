@@ -2,6 +2,7 @@
 require_once($_SERVER['DOCUMENT_ROOT']. "/bitrix/modules/main/include/prolog_before.php");
 
 
+
 CModule::IncludeModule('iblock');
 CModule::IncludeModule('catalog');
 
@@ -18,7 +19,12 @@ $arFilter['PROPERTY_STORE'] = $stores;
 $arFilter['INCLUDE_SUBSECTIONS'] = 'Y';
 
 $res = \CIBlockElement::GetList(Array(), $arFilter, false, false, $arSelect);
+$count=0;
 while($ob = $res->GetNextElement()){
+    $count++;
+    if($count==30){
+        break;
+    }
     $arFields = $ob->GetFields();
     $arFields['PRICE'] = \CCatalogProduct::GetOptimalPrice($arFields['ID']);
     $allItems[] = $arFields;
@@ -34,7 +40,19 @@ while ($ob = $iterator->fetch())
     $allSections[$ob['ID']] = trim(htmlspecialchars(iconv('UTF-8', 'CP1251', $ob['NAME'])));
 }
 
+
 header("Content-type: application/xml; charset=windows-1251");
+
+header('Content-Description: File Transfer');
+header('Content-Type: application/octet-stream');
+header('Content-Disposition: attachment; filename=vygruzka.xml');
+header('Content-Transfer-Encoding: binary');
+header('Connection: Keep-Alive');
+header('Expires: 0');
+header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+header('Pragma: public');
+
+
 echo '<?xml version="1.0" encoding="windows-1251"?>';
 ?>
 <!DOCTYPE yml_catalog SYSTEM "shops.dtd">

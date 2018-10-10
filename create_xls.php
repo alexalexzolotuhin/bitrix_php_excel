@@ -3,6 +3,22 @@ set_time_limit(50);
 
 require_once($_SERVER['DOCUMENT_ROOT']. "/bitrix/modules/main/include/prolog_before.php");
 
+function deb($var){
+    echo '<pre>';
+    print_r($var);
+    echo '</pre>';
+}
+
+/*
+$sections = \Gw\Help\UserSection::get();
+$stores = \Gw\Help\UserStore::get(); */
+
+
+/*
+deb($sections);
+deb($stores);
+die(); */
+
 //ini_set('display_errors', 1);
 //ini_set('error_reporting', E_ALL);
 
@@ -17,36 +33,28 @@ require_once($PHPEXCELPATH.'/PHPExcel.php');
 // Подключаем класс для вывода данных в формате excel
 require_once($PHPEXCELPATH.'/PHPExcel/Writer/Excel5.php');
 
-
-
 CModule::IncludeModule('iblock');
 CModule::IncludeModule('catalog');
 
-
-
-function deb($var){
-    echo '<pre>';
-    print_r($var);
-    echo '</pre>';
-}
-
-
-
 class getXLS {
     public $type;
+    public $name_EN;
+    public $name_RU;
     public $masForXLS;
-    public function __construct($type) {
+    public function __construct($type,$name_EN,$name_RU) {
         $this->type=$type;
+        $this->name_EN=$name_EN;
+        $this->name_RU=$name_RU;
         $this->loadAllData();
     }
     public function loadAllData(){
-        $arSelect = Array("ID", "IBLOCK_ID",  "NAME", "IBLOCK_SECTION_ID", "PROPERTY_*" );//
+        $arSelect = Array("ID", "IBLOCK_ID", "CATALOG_QUANTITY", "CATALOG_QUANTITY_RESERVED", "NAME", "IBLOCK_SECTION_ID", "PROPERTY_*" );//
         $arFilter = Array("ACTIVE_DATE"=>"Y", "ACTIVE"=>"Y", "IBLOCK_ID" => 3);
+        $arFilter['>CATALOG_QUANTITY']='0'; //количество большее нуля в каталоге
         $arFilter['INCLUDE_SUBSECTIONS']='Y';
         //для дисков легковых
         if($this->type=='d'){
-            echo 1;
-            $arFilter['SECTION_ID']=225;
+            $arFilter['SECTION_ID']=224;
             //$arFilter['SECTION_ID']=224; //'diski_legkovye';
         }
         if($this->type=='s'){
@@ -67,31 +75,35 @@ class getXLS {
         while($ob = $res->GetNextElement()){
             $count++;
             if($count==100){
-                break;
+               break;
             }
 
             $arFields = $ob->GetFields();
             $PROPERTY = $ob->GetProperties();
            // deb( $PROPERTY['KOD']);
-
-
          //   $arFields['PRICE'] = \CCatalogProduct::GetOptimalPrice($arFields['ID']);
 
             $array_xls=array();
             // диски
             $array_xls['COD']=$PROPERTY['KOD']['VALUE'];
             $array_xls['NOMENKL']=$arFields['NAME'];
+
+            $array_xls['KOL_OSTATOK']=$arFields['CATALOG_QUANTITY'];//количество доступное
+            $array_xls['KOL_SVOB_OSTATOK']=$PROPERTY['CATALOG_QUANTITY_RESERVED']+$arFields['CATALOG_QUANTITY'];
+
+            //$array_xls['CATALOG_QUANTITY']=$arFields['CATALOG_QUANTITY'];//количество доступное
             $array_xls['PROIZVODITEL'] = $PROPERTY['PROIZVODITEL']['VALUE'];
 
             if($this->type=='d') {
-                $array_xls['DIAMETR_SHINY'] = $PROPERTY['DIAMETR_SHINY']['VALUE'];
+                $array_xls['DIAMETR_DISKI'] = $PROPERTY['DIAMETR_DISKI']['VALUE'];
+
+                $array_xls['DIAMETR_DISKI'] = $PROPERTY['DIAMETR_DISKI']['VALUE'];
+                //$array_xls['DIAMETR_SHINY'] = $PROPERTY['DIAMETR_SHINY']['VALUE'];
                 $array_xls['PCD'] = $PROPERTY['PCD']['VALUE'];
                 $array_xls['ET'] = $PROPERTY['ET']['VALUE'];
                 $array_xls['CB'] = $PROPERTY['CB']['VALUE'];
                 $array_xls['MODEL_SHINY'] = $PROPERTY['MODEL_SHINY']['VALUE'];
-
-                $array_xls['KOL_SVOB_OSTATOK']=$PROPERTY['']['VALUE']; //ПУСТО!
-
+                //ПУСТО!
             }
             if($this->type=='s') {
                 $array_xls['KOD_PROIZVODITELYA'] = $PROPERTY['KOD_PROIZVODITELYA']['VALUE'];
@@ -101,7 +113,7 @@ class getXLS {
             }
 
             // разобраться с отстатками
-            $array_xls['KOL_OSTATOK']=$PROPERTY['']['VALUE'];// ПУСТО
+
 
             $PRICE_TYPE_ID = 3; // Оптовая цена
             //получаем различные типы цен по Id товара, нас интересует оптовая
@@ -118,11 +130,8 @@ class getXLS {
             $array_xls['ZAKAZ']='';
             $this->masForXLS[]=$array_xls;
         }
-
-       // echo $count;
-       // deb( $this->masForXLS);
     }
-
+//генерируем xls по массиву
   public   function generateXls(){
         $this->masForXLS;
 
@@ -133,17 +142,16 @@ class getXLS {
         // Получаем активный лист
         $sheet = $xls->getActiveSheet();
         // Подписываем лист
-        $sheet->setTitle('Выгрузка шины');
+      $sheet->setTitle($this->name_RU);
 
-        // Вставляем текст в ячейку A1
+
+       /* // Вставляем текст в ячейку A1
         $sheet->setCellValue("A1", 'Выгрузка шины');
         $sheet->getStyle('A1')->getFill()->setFillType(
-            PHPExcel_Style_Fill::FILL_SOLID);
-
+            PHPExcel_Style_Fill::FILL_SOLID); */
 
         // Объединяем ячейки
        // $sheet->mergeCells('A1:H1');
-
 
       //стили для вунтернней таблицы
       $style_cell = array(
@@ -165,7 +173,7 @@ class getXLS {
           )
       );
 
-      $row_num=2;
+      $row_num=1;
       if($this->type=='d') {
           $sheet->setCellValueByColumnAndRow(0, $row_num, 'Код');
           $sheet->setCellValueByColumnAndRow(1, $row_num, 'Номенклатура');
@@ -198,14 +206,20 @@ class getXLS {
           $sheet->setCellValueByColumnAndRow(6, $row_num, 'Количество');
           $sheet->setCellValueByColumnAndRow(7, $row_num, 'Цена оптовая');
           $sheet->setCellValueByColumnAndRow(8, $row_num, 'Заказ');
+
+          $xls->getActiveSheet()->setAutoFilter('A2:I2');
+          $sheet->getStyle('A' . $row_num . ':I' . $row_num)->applyFromArray($header_cell);
+          $sheet->getStyle('A' . $row_num . ':I' . $row_num)->getAlignment()->setWrapText(true);//перенос по словам
+          $sheet->getRowDimension($row_num)->setRowHeight(60);
+
       }
-        $row_num=3;
+        $row_num=2;
         foreach ( $this->masForXLS as $array_xls) {
             if($this->type=='d')
             {
                 $sheet->setCellValueByColumnAndRow(0, $row_num, $array_xls['COD']);
                 $sheet->setCellValueByColumnAndRow(1, $row_num, $array_xls['NOMENKL']);
-                $sheet->setCellValueByColumnAndRow(2, $row_num, $array_xls['DIAMETR_SHINY']);
+                $sheet->setCellValueByColumnAndRow(2, $row_num, $array_xls['DIAMETR_DISKI']);
                 $sheet->setCellValueByColumnAndRow(3, $row_num, $array_xls['PCD']);
                 $sheet->setCellValueByColumnAndRow(4, $row_num, $array_xls['ET']);
                 $sheet->setCellValueByColumnAndRow(5, $row_num, $array_xls['CB']);
@@ -226,9 +240,11 @@ class getXLS {
                 $sheet->setCellValueByColumnAndRow(3, $row_num, $array_xls['YA_SEZONNOST']);
                 $sheet->setCellValueByColumnAndRow(4, $row_num, $array_xls['PROIZVODITEL']);
                 $sheet->setCellValueByColumnAndRow(5, $row_num, $array_xls['NOMENKL']);
+                $sheet->getColumnDimension('F')->setWidth(80);//ширина
                 $sheet->setCellValueByColumnAndRow(6, $row_num, $array_xls['KOL_OSTATOK']);
-                $sheet->setCellValueByColumnAndRow(7, $row_num, $array_xls['']);
-                $sheet->getStyle('A' . $row_num . ':L' . $row_num)->applyFromArray($style_cell);
+                $sheet->setCellValueByColumnAndRow(7, $row_num, $array_xls['PRICE_OPT']);
+                $sheet->setCellValueByColumnAndRow(8, $row_num, $array_xls['ZAKAZ']);
+                $sheet->getStyle('A' . $row_num . ':I' . $row_num)->applyFromArray($style_cell);
             }
 
             // Применяем выравнивание
@@ -238,33 +254,64 @@ class getXLS {
         }
 
         // Выводим HTTP-заголовки
+/*
         header ( "Expires: Mon, 1 Apr 1974 05:00:00 GMT" );
         header ( "Last-Modified: " . gmdate("D,d M YH:i:s") . " GMT" );
         header ( "Cache-Control: no-cache, must-revalidate" );
         header ( "Pragma: no-cache" );
         header ( "Content-type: application/vnd.ms-excel" );
-        header ( "Content-Disposition: attachment; filename=matrix.xls" );
+        header ( "Content-Disposition: attachment; filename=".$this->name_EN.".xls" );
+      header('Content-Description: File Transfer');
+      header('Content-Transfer-Encoding: binary');
+      header('Connection: Keep-Alive');*/
+
+
+
+
+      header("Content-type: application/xml; charset=windows-1251");
+
+      header('Content-Description: File Transfer');
+      header('Content-Type: application/octet-stream');
+      header('Content-Disposition: attachment; filename=vygruzka.xls');
+      header('Content-Transfer-Encoding: binary');
+      header('Connection: Keep-Alive');
+      header('Expires: 0');
+      header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+      header('Pragma: public');
 
         // Выводим содержимое файла
         $objWriter = new PHPExcel_Writer_Excel5($xls);
         $objWriter->save('php://output');
+
+      //  $objWriter->save($_SERVER['DOCUMENT_ROOT'].'/load/'.$this->name_EN.'_temp.xls');
+      //  echo '<a href="/load/'.$this->name_EN.'.xls">'.$this->name_RU.'</a><br/>';
+
+     // CopyDirFiles($_SERVER['DOCUMENT_ROOT'].'/load/'.$this->name_EN.'_temp.xls', $_SERVER['DOCUMENT_ROOT'].'/load/'.$this->name_EN.'.xls',true,false,true);
+
+
     }
 }
 
 
+//генерируем шины, а затем сразу диски
+
+
+/*
+$xls=new getXLS('s' ,'shiny','Шины');
+$xls->generateXls();
+*/
 
 $action=isset($_GET['action'])?$_GET['action']:'default';
 switch ($action){
     case 'default':
-        echo '<a href="/load/create_xls.php?action=s">Шины</a><br/>';
-        echo '<a href="/load/create_xls.php?action=d">Диски</a>';
         break;
     case 's': //шины
-        $xls=new getXLS('s');
+        $xls=new getXLS('s' ,'shiny','Шины');
         $xls->generateXls();
         break;
     case 'd': // диски
-        $xls=new getXLS('d');
+
+        $xls=new getXLS('d' ,'diski','Диски');
         $xls->generateXls();
         break;
 }
