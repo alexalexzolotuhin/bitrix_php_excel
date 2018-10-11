@@ -15,7 +15,7 @@ $cpt->SetCodeCrypt($captchaPass);
 ?>
 <form action="/load/ajax.php" class="get_upload_file" method="post">
 
-<p> Для скачки выгрузки  в xml или xls формате введите капчу</p>
+<p> Для загрузи файла необходимо ввести символы с картинки</p>
 <div class="col-30">
     <input type="hidden" name="captcha_code" value="<?=htmlspecialcharsbx($cpt->GetCodeCrypt()) ?>" >
     <img src="/bitrix/tools/captcha.php?captcha_code=<?=htmlspecialcharsbx($cpt->GetCodeCrypt());?>" alt="">

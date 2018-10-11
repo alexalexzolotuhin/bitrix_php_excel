@@ -47,36 +47,85 @@ class getXLS {
         $this->name_RU=$name_RU;
         $this->loadAllData();
     }
+
+    //получаем список  секций (они будут использоваться для исключения)
+    //внутри сложный поиск по всем подкатегориям
+    public function getAllSectionByRootSection($SECTION_ID){
+
+        $rs = CIBlockSection::GetList(
+            array(),
+            array('ID'=>$SECTION_ID,'IBLOCK_ID'=>3)
+        );
+        $ar = $rs->GetNext();
+
+        $arFilter = Array('IBLOCK_ID'=>3,   '>LEFT_MARGIN'=>$ar['LEFT_MARGIN'],
+            '<RIGHT_MARGIN'=>$ar['RIGHT_MARGIN'], );
+        $db_list = CIBlockSection::GetList(array('SORT' => 'ASC', 'ID' => 'ASC'), $arFilter, true);
+        $aMenuLinksExt=array();
+        while($ar_result = $db_list->GetNext())
+        {
+            $aMenuLinksExt[] = $ar_result['ID'];
+        }
+        //$aMenuLinksExt[]=$SECTION_ID;
+        return $aMenuLinksExt;
+    }
+
+    //удаляем из большого масмива секций исключения.
+    public function getDelSection($mass_big, $mass_mini){
+       // print_r($result);
+       // deb($mass_big);
+
+        $mass_ret=array();
+        foreach ($mass_big as $value){
+            if(!in_array ($value,$mass_mini)){
+                $mass_ret[]=$value;
+            }
+        }
+
+        return $mass_ret;
+    }
+
+
     public function loadAllData(){
         $arSelect = Array("ID", "IBLOCK_ID", "CATALOG_QUANTITY", "CATALOG_QUANTITY_RESERVED", "NAME", "IBLOCK_SECTION_ID", "PROPERTY_*" );//
         $arFilter = Array("ACTIVE_DATE"=>"Y", "ACTIVE"=>"Y", "IBLOCK_ID" => 3);
         $arFilter['>CATALOG_QUANTITY']='0'; //количество большее нуля в каталоге
         $arFilter['INCLUDE_SUBSECTIONS']='Y';
-        //для дисков легковых
+
+        //берем готовую фильтрацию
+        $sections = \Gw\Help\UserSection::get();
+        //Очищаем одинаковые
+        $sections = array_unique($sections);
+
+        //для дисков легковых исключаем . (из шин -диски, из диски -шины
         if($this->type=='d'){
-            $arFilter['SECTION_ID']=224;
-            //$arFilter['SECTION_ID']=224; //'diski_legkovye';
+            $aMenuIskluchenie1= $this->getAllSectionByRootSection(49); //49,304
+            $aMenuIskluchenie2= $this->getAllSectionByRootSection(304);
+            $aMenuIskluchenie = array_merge($aMenuIskluchenie1, $aMenuIskluchenie2);
         }
         if($this->type=='s'){
-           // echo 2;
-           // $arFilter['SECTION_ID']=49;//'shiny_legkovye_otechestvennye';
-            $arFilter['SECTION_ID']=array(49,304);//'shiny_legkovye_otechestvennye';
-          /*  $arFilter[]= array(
-                "LOGIC" => "OR",
-                array("SECTION_ID" => 49),
-                array("SECTION_ID" => 304),
-            ); */
+            //$arFilter['SECTION_ID']=array(49,304);//'shiny_legkovye_otechestvennye';
+            $aMenuIskluchenie= $this->getAllSectionByRootSection(224);
+
         }
-      //  deb($arFilter);
+
+        $aMenuIskluchenie = array_unique($aMenuIskluchenie);
+        //удаляем из массива секций лишнее
+        $sections= $this->getDelSection($sections,$aMenuIskluchenie);
+
+        $stores = \Gw\Help\UserStore::get();
+        $arFilter['SECTION_ID'] = $sections;
+        $arFilter['PROPERTY_STORE'] = $stores;
+        $arFilter['INCLUDE_SUBSECTIONS'] = 'Y';
 
         $res = \CIBlockElement::GetList(Array(), $arFilter, false, false, $arSelect);
 
         $count=0;
         while($ob = $res->GetNextElement()){
             $count++;
-            if($count==100){
+           /* if($count==500){
                break;
-            }
+            } */
 
             $arFields = $ob->GetFields();
             $PROPERTY = $ob->GetProperties();
@@ -272,7 +321,7 @@ class getXLS {
 
       header('Content-Description: File Transfer');
       header('Content-Type: application/octet-stream');
-      header('Content-Disposition: attachment; filename=vygruzka.xls');
+      header('Content-Disposition: attachment; filename='.$this->name_EN.'_'.date("Y-m-d__H-i-s").'.xls');
       header('Content-Transfer-Encoding: binary');
       header('Connection: Keep-Alive');
       header('Expires: 0');

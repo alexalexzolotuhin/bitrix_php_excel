@@ -22,9 +22,10 @@ $res = \CIBlockElement::GetList(Array(), $arFilter, false, false, $arSelect);
 $count=0;
 while($ob = $res->GetNextElement()){
     $count++;
+    /*
     if($count==30){
         break;
-    }
+    } */
     $arFields = $ob->GetFields();
     $arFields['PRICE'] = \CCatalogProduct::GetOptimalPrice($arFields['ID']);
     $allItems[] = $arFields;
